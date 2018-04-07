@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import * as firebase from 'firebase';
 import './App.css';
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 // Initialize Firebase.
 var config = {
@@ -26,9 +27,9 @@ class App extends Component {
       loggedIn: false,
       user: "",
       userName: "",
+      list: [],
       
       // TODO: Other values.
-      // list: [],
       // debtor: "",
       // creditor: "",
       // amount: "",
@@ -37,6 +38,23 @@ class App extends Component {
 
   // Actions to be done after the component mounted.
   componentDidMount() {
+
+    // Set Firebase reference.
+    // Reference is used by the update functions below.
+    const listRef = firebase.database().ref().child('list');
+
+    // Update list from Firebase when child added.
+    listRef.on('child_added', snap => {
+      
+      // Get current list of debts from the state.
+      const listOfDebts = this.state.list;
+      // Add the new debt.
+      listOfDebts.push({key: snap.key, value: snap.val().newline, creditor: snap.val().creditor, amount: snap.val().amount});
+      // Update the state with new debt list
+      this.setState({
+        list: listOfDebts
+      });
+    });
 
     // Authorization.
     // Get elements.
@@ -49,14 +67,22 @@ class App extends Component {
       // Facebook log-in provider.
       var provider = new firebase.auth.FacebookAuthProvider();
 
-      // Sing-up.
+      // Sing-up / Log-in functionality.
       firebase.auth().signInWithPopup(provider).then(function(result) {
 
-      // Variables we get from logging in.
-      // Facebook Access Token. Can be used to access the Facebook API.
-      var token = result.credential.accessToken;
-      // The signed-in user info.
-      var user = result.user;
+        // Variables we get from logging in.
+        // Facebook Access Token. Can be used to access the Facebook API.
+        // var token = result.credential.accessToken;
+
+        // The signed-in user info.
+        var userName = result.user.displayName;
+
+        // If a new user, add the user to the users table in Firebase.
+        if(result.additionalUserInfo.isNewUser) {
+          firebase.database().ref().child('users').push().set({
+            userName
+        });
+      }
 
       // Error handling.
       }).catch(function(error) {
@@ -94,6 +120,13 @@ class App extends Component {
 
   // Renderable content.
   render() {
+
+    // Modify the list of debts from state to a table form.
+    const tableItems = this.state.list.map((debt) => 
+      <tr key={debt.key}><td>{debt.person}</td><td>{debt.amount}</td></tr>
+    );
+
+    // Return the page layout.
     return (
       <div className="App">
         <div className="App-header">
@@ -112,14 +145,27 @@ class App extends Component {
           </div>
 
           <div className="Align-right">
-            <button className="btn-link" ref="btnLogout" hidden={!this.state.loggedIn}>
+            <button className="btn btn-outline-light" ref="btnLogout" hidden={!this.state.loggedIn}>
               Kirjaudu ulos
             </button>
           </div>
         </div>
 
         <div className="App-body">
-
+          <div className="deptList" hidden={!this.state.loggedIn}>
+            <table className="table table-striped table-hover table-condensed">
+              <thead>
+                <tr className="info">
+                  <th>Henkilö</th>
+                  <th>Määrä</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableItems}
+              </tbody>
+            </table>
+            <br/>
+          </div>
         </div>
       </div>
     );
