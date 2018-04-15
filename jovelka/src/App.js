@@ -27,32 +27,58 @@ class App extends Component {
       loggedIn: false,
       user: "",
       userName: "",
-      list: [],
-      
-      // TODO: Other values.
-      // debtor: "",
-      // creditor: "",
-      // amount: "",
+      debtList: [],
+      userList: [],
+      debtor: "",
+      creditor: "",
+      amount: "",
+      message: "",
     };
+
+    this.handleDebtorSelectChange = this.handleDebtorSelectChange.bind(this);
+    this.handleCreditorSelectChange = this.handleCreditorSelectChange.bind(this);
+    this.handleAmountSelectChange = this.handleAmountSelectChange.bind(this);
+    this.handleMessageSelectChange = this.handleMessageSelectChange.bind(this);
+    
+    this.handleSubmit = this.handleSubmit.bind(this);
   }
 
   // Actions to be done after the component mounted.
   componentDidMount() {
 
-    // Set Firebase reference.
-    // Reference is used by the update functions below.
+    // Debtlist.
+    // Debtlist reference. Reference is used by the update functions below.
     const listRef = firebase.database().ref().child('list');
 
     // Update list from Firebase when child added.
     listRef.on('child_added', snap => {
       
       // Get current list of debts from the state.
-      const listOfDebts = this.state.list;
+      const listOfDebts = this.state.debtList;
       // Add the new debt.
       listOfDebts.push({key: snap.key, value: snap.val().newline, creditor: snap.val().creditor, amount: snap.val().amount});
-      // Update the state with new debt list
+      // Update the state with new debt list.
       this.setState({
-        list: listOfDebts
+        debtList: listOfDebts
+      });
+    });
+
+    // User management.
+    // User management reference.
+    const userRef = firebase.database().ref().child('users');
+
+    // Update list from Firebase when child added.
+    userRef.on('child_added', snap => {
+      
+      // Get current list of users from the state.
+      const listOfUsers = this.state.userList;
+      // Add the new user.
+      listOfUsers.push({key: snap.key, user: snap.val().userName});
+      // Update the state with new userlist.
+      this.setState({
+        userList: listOfUsers,
+        debtor: this.state.userList[0].user,
+        creditor: this.state.userList[0].user,
       });
     });
 
@@ -78,7 +104,7 @@ class App extends Component {
         var userName = result.user.displayName;
 
         // If a new user, add the user to the users table in Firebase.
-        if(result.additionalUserInfo.isNewUser) {
+        if(!result.additionalUserInfo.isNewUser) {
           firebase.database().ref().child('users').push().set({
             userName
         });
@@ -116,14 +142,52 @@ class App extends Component {
         })
       }
     });
+
+    // Set the first value to be the default value for the form.
+    if( this.state.userList.length > 0 ){
+      this.setState({debtor: this.state.userList[0].displayName}); 
+      console.log("set first value: " + this.state.userList[0].displayName);
+    }
   }
+
+  // Debt form functionality.
+  // Handle debtor option change.
+  handleDebtorSelectChange(event){
+    this.setState({debtor: event.target.value});
+  };
+
+  // Handle creditor option change.
+  handleCreditorSelectChange(event){
+    this.setState({creditor: event.target.value});
+  };
+
+  // Handle amount option change.
+  handleAmountSelectChange(event){
+    this.setState({amount: event.target.value});
+  };
+
+  // Handle amount option change.
+  handleMessageSelectChange(event){
+    this.setState({message: event.target.value});
+  };
+
+  handleSubmit(event) {
+    alert(this.state.debtor + " on henkilölle " + this.state.creditor + " velkaa " + this.state.amount + " euroa viestillä " + this.state.message);
+    event.preventDefault();
+  }
+
 
   // Renderable content.
   render() {
 
     // Modify the list of debts from state to a table form.
-    const tableItems = this.state.list.map((debt) => 
+    const Debts = this.state.debtList.map((debt) => 
       <tr key={debt.key}><td>{debt.person}</td><td>{debt.amount}</td></tr>
+    );
+
+    // Modify the list of users from state to a table form.
+    const Users = this.state.userList.map((user) => 
+       <option key={user.key} disabled={user.disabled} value={user.user}>{user.user}</option>
     );
 
     // Return the page layout.
@@ -152,7 +216,7 @@ class App extends Component {
         </div>
 
         <div className="App-body">
-          <div className="deptList" hidden={!this.state.loggedIn}>
+          <div className="Dept-list" hidden={!this.state.loggedIn}>
             <table className="table table-striped table-hover table-condensed">
               <thead>
                 <tr className="info">
@@ -161,11 +225,41 @@ class App extends Component {
                 </tr>
               </thead>
               <tbody>
-                {tableItems}
+                {Debts}
               </tbody>
             </table>
             <br/>
           </div>
+
+          <form onSubmit={this.handleSubmit}>
+            <div className="form-group">
+              <label className="control-label">Velallinen:</label>
+              <select className="form-control" value={this.state.debtor} onChange={this.handleDebtorSelectChange} >
+                {Users}
+              </select>
+              </div> 
+
+            <div className="form-group">
+              <label className="control-label">Velkoja:</label>
+              <select className="form-control" value={this.state.creditor} onChange={this.handleCreditorSelectChange} >
+                {Users}
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="control-label">Määrä:</label>
+              <input type="number" className="form-control" value={this.state.amount} onChange={this.handleAmountSelectChange} />
+            </div>
+
+            <div className="form-group">
+              <label className="control-label">Viesti:</label>
+              <input type="text" className="form-control" value={this.state.message} onChange={this.handleMessageSelectChange} />
+            </div>
+
+            <div className="form-group">
+              <input className="btn btn-default" type="submit" value="Add" />
+            </div> 
+          </form>
         </div>
       </div>
     );
