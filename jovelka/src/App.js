@@ -13,6 +13,17 @@ var config = {
 };
 firebase.initializeApp(config);
 
+// Add a new debt to the database.
+function addDebt(debtor, creditor, amount, message) {
+  // Push new value into the debtlist.
+  firebase.database().ref().child('debts').push().set({
+    debtor,
+    creditor,
+    amount,
+    message,
+  });
+}
+
 // The main single page app.
 class App extends Component {
 
@@ -25,12 +36,12 @@ class App extends Component {
     // Set starting state
     this.state = {
       loggedIn: false,
-      user: "",
+      userUID: "",
       userName: "",
       debtList: [],
       userList: [],
-      debtor: "",
-      creditor: "",
+      debtor: {},
+      creditor: {},
       amount: "",
       message: "",
     };
@@ -77,8 +88,8 @@ class App extends Component {
       // Update the state with new userlist.
       this.setState({
         userList: listOfUsers,
-        debtor: this.state.userList[0].user,
-        creditor: this.state.userList[0].user,
+        debtor: this.state.userList[0],
+        creditor: this.state.userList[0],
       });
     });
 
@@ -137,7 +148,7 @@ class App extends Component {
       if(firebaseUser) {
         this.setState({
           loggedIn: true,
-          user: firebaseUser.uid,
+          userUID: firebaseUser.uid,
           userName: firebaseUser.displayName,
         })
       }
@@ -153,12 +164,12 @@ class App extends Component {
   // Debt form functionality.
   // Handle debtor option change.
   handleDebtorSelectChange(event){
-    this.setState({debtor: event.target.value});
+    this.setState({debtor: event.target});
   };
 
   // Handle creditor option change.
   handleCreditorSelectChange(event){
-    this.setState({creditor: event.target.value});
+    this.setState({creditor: event.target});
   };
 
   // Handle amount option change.
@@ -172,10 +183,10 @@ class App extends Component {
   };
 
   handleSubmit(event) {
-    alert(this.state.debtor + " on henkilölle " + this.state.creditor + " velkaa " + this.state.amount + " euroa viestillä " + this.state.message);
+    alert(this.state.debtor.user + " on henkilölle " + this.state.creditor.user + " velkaa " + this.state.amount + " euroa viestillä " + this.state.message);
+    addDebt(this.state.debtor.key, this.state.creditor.key, this.state.amount, this.state.message);
     event.preventDefault();
   }
-
 
   // Renderable content.
   render() {
@@ -187,7 +198,7 @@ class App extends Component {
 
     // Modify the list of users from state to a table form.
     const Users = this.state.userList.map((user) => 
-       <option key={user.key} disabled={user.disabled} value={user.user}>{user.user}</option>
+       <option key={user.key} value={user.user}>{user.user}</option>
     );
 
     // Return the page layout.
@@ -234,17 +245,10 @@ class App extends Component {
           <form onSubmit={this.handleSubmit}>
             <div className="form-group">
               <label className="control-label">Velallinen:</label>
-              <select className="form-control" value={this.state.debtor} onChange={this.handleDebtorSelectChange} >
+              <select className="form-control" value={this.state.debtor.user} onChange={this.handleDebtorSelectChange} >
                 {Users}
               </select>
-              </div> 
-
-            <div className="form-group">
-              <label className="control-label">Velkoja:</label>
-              <select className="form-control" value={this.state.creditor} onChange={this.handleCreditorSelectChange} >
-                {Users}
-              </select>
-            </div>
+            </div> 
 
             <div className="form-group">
               <label className="control-label">Määrä:</label>
