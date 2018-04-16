@@ -40,8 +40,8 @@ class App extends Component {
       userName: "",
       debtList: [],
       userList: [],
-      debtor: {},
-      creditor: {},
+      debtor: "",
+      creditor: "",
       amount: "",
       message: "",
     };
@@ -59,7 +59,7 @@ class App extends Component {
 
     // Debtlist.
     // Debtlist reference. Reference is used by the update functions below.
-    const listRef = firebase.database().ref().child('list');
+    const listRef = firebase.database().ref().child('debts');
 
     // Update list from Firebase when child added.
     listRef.on('child_added', snap => {
@@ -67,7 +67,7 @@ class App extends Component {
       // Get current list of debts from the state.
       const listOfDebts = this.state.debtList;
       // Add the new debt.
-      listOfDebts.push({key: snap.key, value: snap.val().newline, creditor: snap.val().creditor, amount: snap.val().amount});
+      listOfDebts.push({key: snap.key, debtor: snap.val().debtor, creditor: snap.val().creditor, amount: snap.val().amount, message: snap.val().message});
       // Update the state with new debt list.
       this.setState({
         debtList: listOfDebts
@@ -88,8 +88,8 @@ class App extends Component {
       // Update the state with new userlist.
       this.setState({
         userList: listOfUsers,
-        debtor: this.state.userList[0],
-        creditor: this.state.userList[0],
+        debtor: this.state.userList[0].user,
+        creditor: this.state.userList[0].user,
       });
     });
 
@@ -164,12 +164,12 @@ class App extends Component {
   // Debt form functionality.
   // Handle debtor option change.
   handleDebtorSelectChange(event){
-    this.setState({debtor: event.target});
+    this.setState({debtor: event.target.value});
   };
 
   // Handle creditor option change.
   handleCreditorSelectChange(event){
-    this.setState({creditor: event.target});
+    this.setState({creditor: event.target.value});
   };
 
   // Handle amount option change.
@@ -183,8 +183,7 @@ class App extends Component {
   };
 
   handleSubmit(event) {
-    alert(this.state.debtor.user + " on henkilölle " + this.state.creditor.user + " velkaa " + this.state.amount + " euroa viestillä " + this.state.message);
-    addDebt(this.state.debtor.key, this.state.creditor.key, this.state.amount, this.state.message);
+    addDebt(this.state.debtor, this.state.creditor, this.state.amount, this.state.message);
     event.preventDefault();
   }
 
@@ -193,7 +192,7 @@ class App extends Component {
 
     // Modify the list of debts from state to a table form.
     const Debts = this.state.debtList.map((debt) => 
-      <tr key={debt.key}><td>{debt.person}</td><td>{debt.amount}</td></tr>
+      <tr key={debt.key}><td>{debt.debtor}</td><td>{debt.amount}</td><td>{debt.message}</td></tr>
     );
 
     // Modify the list of users from state to a table form.
@@ -233,6 +232,7 @@ class App extends Component {
                 <tr className="info">
                   <th>Henkilö</th>
                   <th>Määrä</th>
+                  <th>Viesti</th>
                 </tr>
               </thead>
               <tbody>
@@ -245,7 +245,7 @@ class App extends Component {
           <form onSubmit={this.handleSubmit}>
             <div className="form-group">
               <label className="control-label">Velallinen:</label>
-              <select className="form-control" value={this.state.debtor.user} onChange={this.handleDebtorSelectChange} >
+              <select className="form-control" value={this.state.debtor} onChange={this.handleDebtorSelectChange} >
                 {Users}
               </select>
             </div> 
