@@ -24,6 +24,21 @@ function addDebt(debtor, creditor, amount, message) {
   });
 }
 
+// Filter the debts and change value to negative if user ows money.
+function filterDebt(debt, userName)
+{
+  // If user is creditor, we just add the debt to the list.
+  if (debt.creditor === userName) {
+    return {key: debt.key, person: debt.debtor, amount: debt.amount, message: debt.message};
+  }
+  // If user is debtor, we change the amount to negative and add the debtto the list.
+  else if (debt.debtor === userName) {
+    return {key: debt.key, person: debt.creditor, amount: debt.amount * -1, message: debt.message};
+  }
+  // Someone elses debt. We ignore it.
+  return null;
+}
+
 // The main single page app.
 class App extends Component {
 
@@ -66,12 +81,15 @@ class App extends Component {
       
       // Get current list of debts from the state.
       const listOfDebts = this.state.debtList;
-      // Add the new debt.
-      listOfDebts.push({key: snap.key, debtor: snap.val().debtor, creditor: snap.val().creditor, amount: snap.val().amount, message: snap.val().message});
-      // Update the state with new debt list.
-      this.setState({
-        debtList: listOfDebts
-      });
+      // Filter the new debt.
+      const newDebt = filterDebt({key: snap.key, debtor: snap.val().debtor, creditor: snap.val().creditor, amount: snap.val().amount, message: snap.val().message}, this.state.userName);
+      // Add new filtered debt if it is ours
+      if (newDebt != null) {
+        listOfDebts.push(newDebt);
+        this.setState({
+          debtList: listOfDebts,
+        });
+      }
     });
 
     // User management.
@@ -192,7 +210,7 @@ class App extends Component {
 
     // Modify the list of debts from state to a table form.
     const Debts = this.state.debtList.map((debt) => 
-      <tr key={debt.key}><td>{debt.debtor}</td><td>{debt.amount}</td><td>{debt.message}</td></tr>
+      <tr key={debt.key}><td>{debt.person}</td><td>{debt.amount}</td><td>{debt.message}</td></tr>
     );
 
     // Modify the list of users from state to a table form.
@@ -244,7 +262,7 @@ class App extends Component {
 
           <form onSubmit={this.handleSubmit}>
             <div className="form-group">
-              <label className="control-label">Velallinen:</label>
+              <label className="control-label">Henkilö:</label>
               <select className="form-control" value={this.state.debtor} onChange={this.handleDebtorSelectChange} >
                 {Users}
               </select>
