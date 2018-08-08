@@ -104,22 +104,6 @@ class App extends Component {
   // Actions to be done after the component mounted.
   componentDidMount() {
 
-    // Debtlist.
-    // Debtlist reference. Reference is used by the update functions below.
-    const listRef = firebase.database().ref().child('debts');
-
-    // Update list from Firebase when child added.
-    listRef.on('child_added', snap => {
-      // Get current list of debts from the state.
-      var listOfDebts = this.state.debtList;
-      // Add in the data from the new debt.
-      listOfDebts = modifyDebtIn(listOfDebts, snap.key, snap.val().debtor, snap.val().creditor, snap.val().amount, snap.val().message, this.state.userName);
-      // Save the updated debt list.
-      this.setState({
-        debtList: listOfDebts,
-      });
-    });
-
     // User management.
     // User management reference.
     const userRef = firebase.database().ref().child('users');
@@ -157,7 +141,7 @@ class App extends Component {
         // The signed-in user info.
         var userName = result.user.displayName;
         // If a new user, add the user to the users table in Firebase.
-        if(!result.additionalUserInfo.isNewUser) {
+        if(result.additionalUserInfo.isNewUser) {
           firebase.database().ref().child('users').push().set({
             userName
         });
@@ -190,7 +174,24 @@ class App extends Component {
           loggedIn: true,
           userUID: firebaseUser.uid,
           userName: firebaseUser.displayName,
-        })
+        });
+
+        // Debtlist.
+        // Debtlist reference. Reference is used by the update functions below.
+        const listRef = firebase.database().ref().child('debts');
+
+        // Update list from Firebase when child added.
+        listRef.on('child_added', snap => {
+          // Get current list of debts from the state.
+          var listOfDebts = this.state.debtList;
+          // Add in the data from the new debt.
+          
+          listOfDebts = modifyDebtIn(listOfDebts, snap.key, snap.val().debtor, snap.val().creditor, snap.val().amount, snap.val().message, this.state.userName); //"Jouni Veima");//
+          // Save the updated debt list.
+          this.setState({
+            debtList: listOfDebts,
+          });
+        });
       }
     });
   }
@@ -285,7 +286,7 @@ class App extends Component {
             <br/>
           </div>
 
-          <form onSubmit={this.handleSubmit}>
+          <form onSubmit={this.handleSubmit} hidden={!this.state.loggedIn}>
             <div className="form-group">
               <label className="control-label">Henkilö:</label>
               <select className="form-control" value={this.state.debtUser} onChange={this.handleDebtUserSelectChange} >
