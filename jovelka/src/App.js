@@ -24,30 +24,65 @@ function addDebt(debtor, creditor, amount, message) {
   });
 }
 
-// Filter the debts and change value to negative if user ows money.
-function filterDebt(debt, userName)
+// // Filter the debts and change value to negative if user ows money.
+// function filterDebt(debt, userName)
+// {
+//   // If user is creditor, we just add the debt to the list.
+//   if (debt.creditor === userName) {
+//     return {key: debt.key, person: debt.debtor, amount: debt.amount, message: debt.message};
+//   }
+//   // If user is debtor, we change the amount to negative and add the debtto the list.
+//   else if (debt.debtor === userName) {
+//     return {key: debt.key, person: debt.creditor, amount: debt.amount * -1, message: debt.message};
+//   }
+//   // Someone elses debt. We ignore it.
+// return null;
+// }
+
+// Modify the debt into the list for correct person.
+function modifyDebtIn(debtList, key, debtor, creditor, amount, message, userName)
 {
   // If user is creditor, we just add the debt to the list.
-  if (debt.creditor === userName) {
-    return {key: debt.key, person: debt.debtor, amount: debt.amount, message: debt.message};
+  if (creditor === userName) {
+    return modifyDebt(debtList, amount, debtor, key, message);
   }
-  // If user is debtor, we change the amount to negative and add the debtto the list.
-  else if (debt.debtor === userName) {
-    return {key: debt.key, person: debt.creditor, amount: debt.amount * -1, message: debt.message};
+  // If user is debtor, we change the amount to negative and add the debt to the list.
+  else if (debtor === userName) {
+    return modifyDebt(debtList, amount * -1, creditor, key, message);
   }
   // Someone elses debt. We ignore it.
   return null;
 }
 
+// Modify the actual debt.
+function modifyDebt(debtList, amount, userName, debtkey, debtmessage) {
+  var newDebtList = debtList;
+  // Loop through the debt list and find if we already have debts from that person.
+  for(var i = 0; i < newDebtList.length; i++) {
+    if(newDebtList[i].person === userName) {
+      // Already have a debt amount for this person.
+      // Modify the amount.
+      var newAmount = parseFloat(newDebtList[i].amount) + parseFloat(amount);
+      // Round down to two decimals.
+      newAmount = newAmount.toFixed(2);
+      newDebtList[i].amount = newAmount;
+      // Change the message
+      newDebtList[i].message = debtmessage;
+      return newDebtList;
+    }
+  }
+  // We didn't have debts for this person.
+  // Add the new person and debt to the list.
+  newDebtList.push({key: debtkey, person: userName, amount: amount, message: debtmessage});
+  return newDebtList;
+}
+
 // The main single page app.
 class App extends Component {
-
   // Construct the app.
   constructor() {
-
     // Call the parent constructor.
     super();
-
     // Set starting state
     this.state = {
       loggedIn: false,
@@ -55,17 +90,14 @@ class App extends Component {
       userName: "",
       debtList: [],
       userList: [],
-      debtor: "",
-      creditor: "",
+      debtUser: "",
       amount: "",
       message: "",
     };
 
-    this.handleDebtorSelectChange = this.handleDebtorSelectChange.bind(this);
-    this.handleCreditorSelectChange = this.handleCreditorSelectChange.bind(this);
+    this.handleDebtUserSelectChange = this.handleDebtUserSelectChange.bind(this);
     this.handleAmountSelectChange = this.handleAmountSelectChange.bind(this);
     this.handleMessageSelectChange = this.handleMessageSelectChange.bind(this);
-    
     this.handleSubmit = this.handleSubmit.bind(this);
   }
 
@@ -78,18 +110,14 @@ class App extends Component {
 
     // Update list from Firebase when child added.
     listRef.on('child_added', snap => {
-      
       // Get current list of debts from the state.
-      const listOfDebts = this.state.debtList;
-      // Filter the new debt.
-      const newDebt = filterDebt({key: snap.key, debtor: snap.val().debtor, creditor: snap.val().creditor, amount: snap.val().amount, message: snap.val().message}, this.state.userName);
-      // Add new filtered debt if it is ours
-      if (newDebt != null) {
-        listOfDebts.push(newDebt);
-        this.setState({
-          debtList: listOfDebts,
-        });
-      }
+      var listOfDebts = this.state.debtList;
+      // Add in the data from the new debt.
+      listOfDebts = modifyDebtIn(listOfDebts, snap.key, snap.val().debtor, snap.val().creditor, snap.val().amount, snap.val().message, this.state.userName);
+      // Save the updated debt list.
+      this.setState({
+        debtList: listOfDebts,
+      });
     });
 
     // User management.
@@ -98,17 +126,18 @@ class App extends Component {
 
     // Update list from Firebase when child added.
     userRef.on('child_added', snap => {
-      
       // Get current list of users from the state.
       const listOfUsers = this.state.userList;
       // Add the new user.
-      listOfUsers.push({key: snap.key, user: snap.val().userName});
-      // Update the state with new userlist.
-      this.setState({
-        userList: listOfUsers,
-        debtor: this.state.userList[0].user,
-        creditor: this.state.userList[0].user,
-      });
+      // Don't add the current user to the list.
+      if(snap.val().userName !== this.state.userName)
+      {
+        listOfUsers.push({key: snap.key, user: snap.val().userName});
+        // Update the state with new userlist.
+        this.setState({
+          userList: listOfUsers,
+        });
+      }
     });
 
     // Authorization.
@@ -118,20 +147,15 @@ class App extends Component {
 
     // Handle Facebook log-in.
     btnFacebookLogin.addEventListener('click', e => {
-
       // Facebook log-in provider.
       var provider = new firebase.auth.FacebookAuthProvider();
-
       // Sing-up / Log-in functionality.
       firebase.auth().signInWithPopup(provider).then(function(result) {
-
         // Variables we get from logging in.
         // Facebook Access Token. Can be used to access the Facebook API.
         // var token = result.credential.accessToken;
-
         // The signed-in user info.
         var userName = result.user.displayName;
-
         // If a new user, add the user to the users table in Firebase.
         if(!result.additionalUserInfo.isNewUser) {
           firebase.database().ref().child('users').push().set({
@@ -141,11 +165,9 @@ class App extends Component {
 
       // Error handling.
       }).catch(function(error) {
-        
-      var errorCode = error.code;
-      var errorMessage = error.message;
-      console.log("Error " + errorCode + ": " + errorMessage );
-
+        var errorCode = error.code;
+        var errorMessage = error.message;
+        console.log("Error " + errorCode + ": " + errorMessage );
       }) 
     });
 
@@ -171,23 +193,12 @@ class App extends Component {
         })
       }
     });
-
-    // Set the first value to be the default value for the form.
-    if( this.state.userList.length > 0 ){
-      this.setState({debtor: this.state.userList[0].displayName}); 
-      console.log("set first value: " + this.state.userList[0].displayName);
-    }
   }
 
   // Debt form functionality.
-  // Handle debtor option change.
-  handleDebtorSelectChange(event){
-    this.setState({debtor: event.target.value});
-  };
-
-  // Handle creditor option change.
-  handleCreditorSelectChange(event){
-    this.setState({creditor: event.target.value});
+  // Handle debt user option change.
+  handleDebtUserSelectChange(event){
+    this.setState({debtUser: event.target.value});
   };
 
   // Handle amount option change.
@@ -195,13 +206,27 @@ class App extends Component {
     this.setState({amount: event.target.value});
   };
 
-  // Handle amount option change.
+  // Handle message option change.
   handleMessageSelectChange(event){
     this.setState({message: event.target.value});
   };
 
   handleSubmit(event) {
-    addDebt(this.state.debtor, this.state.creditor, this.state.amount, this.state.message);
+    // Check if we have selected a debtUser.
+    var tempDebtUser = this.state.debtUser;
+    if(tempDebtUser === ""){
+      // We haven't, so we use the first one on the user list (default value).
+      tempDebtUser = this.state.userList[0].user;
+    }
+    // Check from amount are we debtor or creditor.
+    if(this.state.amount < 0) {
+      // We are debtor.
+      addDebt(this.state.userName, tempDebtUser, this.state.amount * -1, this.state.message);
+    }
+    else {
+      // We are creditor.
+      addDebt(tempDebtUser, this.state.userName, this.state.amount, this.state.message);
+    }
     event.preventDefault();
   }
 
@@ -250,7 +275,7 @@ class App extends Component {
                 <tr className="info">
                   <th>Henkilö</th>
                   <th>Määrä</th>
-                  <th>Viesti</th>
+                  <th>Viimeisin viesti</th>
                 </tr>
               </thead>
               <tbody>
@@ -263,7 +288,7 @@ class App extends Component {
           <form onSubmit={this.handleSubmit}>
             <div className="form-group">
               <label className="control-label">Henkilö:</label>
-              <select className="form-control" value={this.state.debtor} onChange={this.handleDebtorSelectChange} >
+              <select className="form-control" value={this.state.debtUser} onChange={this.handleDebtUserSelectChange} >
                 {Users}
               </select>
             </div> 
